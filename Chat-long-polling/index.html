@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Long Polling – CIS 2026</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&family=Lora:ital,wght@0,500;0,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary:    #4A90A4;
+      --primary-dk: #2d6d80;
+      --accent:     #7EC8A4;
+      --soft:       #F0F7F9;
+      --white:      #ffffff;
+      --text:       #2C3E50;
+      --text-light: #666e7a;
+      --shadow:     0 4px 20px rgba(74,144,164,.15);
+      --radius:     12px;
+      --ana-bg:     #4A90A4;
+      --pedro-bg:   #7EC8A4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Lexend', sans-serif;
+      background: linear-gradient(135deg, #e8f5f9 0%, #f0faf5 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .header {
+      background: var(--white);
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+      padding: 1rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .header .logo-circle {
+      width: 44px; height: 44px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-family: 'Lora', serif;
+      font-weight: 700; font-size: 1.1rem;
+    }
+    .header h1 {
+      font-family: 'Lora', serif; font-size: 1.2rem; color: var(--primary-dk);
+    }
+    .header h1 span {
+      font-family: 'Lexend', sans-serif; font-size: 0.75rem;
+      color: var(--text-light); font-weight: 400; display: block;
+    }
+    .header .badge {
+      margin-left: auto;
+      background: rgba(126,200,164,.15); color: #2a7a5a;
+      padding: 0.3rem 0.9rem; border-radius: 50px;
+      font-size: 0.78rem; font-weight: 600;
+    }
+    .intro {
+      text-align: center; padding: 1.5rem 1rem 0.5rem;
+      max-width: 600px; margin: 0 auto;
+    }
+    .intro h2 {
+      font-family: 'Lora', serif; color: var(--primary-dk);
+      font-size: 1.4rem; margin-bottom: 0.4rem;
+    }
+    .intro p { color: var(--text-light); font-size: 0.88rem; line-height: 1.5; }
+    .people-bar {
+      display: flex; justify-content: center; gap: 2rem; padding: 1rem 0 0.5rem;
+    }
+    .person-badge {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--white); padding: 0.4rem 1rem 0.4rem 0.4rem;
+      border-radius: 50px; box-shadow: var(--shadow);
+      font-size: 0.85rem; font-weight: 600;
+    }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1rem;
+    }
+    .avatar-ana   { background: var(--ana-bg); }
+    .avatar-pedro { background: var(--pedro-bg); }
+    .chat-card {
+      max-width: 600px; margin: 1rem auto; padding: 0 1rem;
+    }
+    .card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .card-header {
+      padding: 0.8rem 1.2rem;
+      display: flex; align-items: center; gap: 0.6rem;
+      font-weight: 700; font-size: 1rem; color: #2a7a5a;
+      border-bottom: 2px solid var(--soft);
+    }
+    .card-tag {
+      margin-left: auto; background: rgba(126,200,164,.2); color: #2a7a5a;
+      font-size: 0.68rem; font-weight: 500;
+      padding: 0.2rem 0.6rem; border-radius: 50px;
+    }
+    .chat-area {
+      min-height: 300px; max-height: 420px; overflow-y: auto;
+      padding: 0.8rem 1rem; display: flex; flex-direction: column;
+      gap: 0.4rem; background: var(--soft);
+    }
+    .msg {
+      max-width: 78%; padding: 0.55rem 0.85rem;
+      border-radius: 14px; font-size: 0.85rem; line-height: 1.4;
+      animation: popIn 0.25s ease;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.95) translateY(4px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .msg-ana {
+      align-self: flex-end; background: var(--ana-bg);
+      color: #fff; border-bottom-right-radius: 4px;
+    }
+    .msg-pedro {
+      align-self: flex-start; background: var(--pedro-bg);
+      color: #fff; border-bottom-left-radius: 4px;
+    }
+    .msg .meta { font-size: 0.65rem; opacity: 0.7; margin-top: 0.15rem; }
+    .msg-system {
+      align-self: center; color: var(--text-light);
+      font-size: 0.78rem; font-style: italic; padding: 0.3rem 0;
+    }
+    .inputs-wrap { border-top: 1px solid #e8eff2; }
+    .person-input {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 0.8rem; border-bottom: 1px solid #f0f4f6;
+    }
+    .person-input:last-child { border-bottom: none; }
+    .mini-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 0.8rem; flex-shrink: 0;
+    }
+    .person-input input {
+      flex: 1; padding: 0.45rem 0.7rem; border-radius: 20px;
+      border: 1.5px solid #dce6ea; font-family: 'Lexend', sans-serif;
+      font-size: 0.82rem; color: var(--text); outline: none;
+      background: var(--soft);
+    }
+    .person-input input:focus { border-color: var(--primary); background: #fff; }
+    .btn-send {
+      padding: 0.4rem 0.9rem; border: none; border-radius: 20px;
+      font-family: 'Lexend', sans-serif; font-weight: 600;
+      font-size: 0.78rem; cursor: pointer; color: #fff;
+      transition: opacity 0.15s;
+    }
+    .btn-send:hover { opacity: 0.85; }
+    .btn-send-ana   { background: var(--ana-bg); }
+    .btn-send-pedro { background: var(--pedro-bg); }
+    .reset-bar { text-align: center; padding: 0.3rem 0 0.6rem; }
+    .btn-reset {
+      padding: 0.4rem 1.2rem; border: 1.5px solid #dce6ea;
+      border-radius: 50px; background: var(--white);
+      font-family: 'Lexend', sans-serif; font-size: 0.8rem;
+      color: var(--text-light); cursor: pointer; box-shadow: var(--shadow);
+    }
+    .btn-reset:hover { border-color: var(--primary); color: var(--primary); }
+    .explain-card {
+      max-width: 600px; margin: 0.8rem auto 0.5rem; padding: 0 1rem;
+    }
+    .explain-inner {
+      background: var(--white); border-radius: var(--radius);
+      padding: 1rem 1.2rem; box-shadow: var(--shadow);
+    }
+    .explain-inner h3 { font-size: 0.9rem; margin-bottom: 0.5rem; color: #2a7a5a; }
+    .explain-inner ul { padding-left: 1rem; }
+    .explain-inner li {
+      font-size: 0.8rem; color: var(--text-light);
+      margin-bottom: 0.25rem; line-height: 1.45;
+    }
+    .pro { color: #2a9d5c; }
+    .net-log {
+      max-width: 600px; margin: 0.5rem auto 2rem; padding: 0 1rem;
+    }
+    .net-log details {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .net-log summary {
+      padding: 0.6rem 1.2rem; font-size: 0.82rem;
+      font-weight: 600; color: var(--text-light); cursor: pointer;
+    }
+    .net-log-content {
+      max-height: 150px; overflow-y: auto; padding: 0 1rem 0.6rem;
+      font-family: 'Consolas', 'Cascadia Code', monospace;
+      font-size: 0.72rem; color: #2a7a5a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo-circle">CIS</div>
+    <h1>Ejercicio Long Polling <span>CIS 2026 – Centro de Intervención Psicoeducativa</span></h1>
+    <span class="badge">🔔 Long Polling</span>
+  </div>
+
+  <div class="intro">
+    <h2>Chat en tiempo real con Long Polling</h2>
+    <p>Ana y Pedro chatean. El navegador mantiene una conexión abierta esperando mensajes nuevos del servidor. Cuando llegan, aparecen solos.</p>
+  </div>
+
+  <div class="people-bar">
+    <div class="person-badge">
+      <div class="avatar avatar-ana">👩</div> Ana (Familia)
+    </div>
+    <div class="person-badge">
+      <div class="avatar avatar-pedro">👨</div> Pedro (Profesional)
+    </div>
+  </div>
+
+  <div class="reset-bar">
+    <button class="btn-reset" onclick="resetChat()">🔄 Limpiar conversación</button>
+  </div>
+
+  <div class="chat-card">
+    <div class="card">
+      <div class="card-header">
+        🔔 Chat Long Polling
+        <span class="card-tag">Los mensajes llegan solos ✨</span>
+      </div>
+      <div class="chat-area" id="chatArea">
+        <div class="msg msg-system">Escribe como Ana o como Pedro. Los mensajes aparecen automáticamente.</div>
+      </div>
+      <div class="inputs-wrap">
+        <div class="person-input">
+          <div class="mini-avatar avatar-ana">👩</div>
+          <input type="text" id="anaInput" placeholder="Ana escribe..."
+                 onkeydown="if(event.key==='Enter') send('Ana')">
+          <button class="btn-send btn-send-ana" onclick="send('Ana')">Enviar</button>
+        </div>
+        <div class="person-input">
+          <div class="mini-avatar avatar-pedro">👨</div>
+          <input type="text" id="pedroInput" placeholder="Pedro escribe..."
+                 onkeydown="if(event.key==='Enter') send('Pedro')">
+          <button class="btn-send btn-send-pedro" onclick="send('Pedro')">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="explain-card">
+    <div class="explain-inner">
+      <h3>🔔 ¿Cómo funciona Long Polling?</h3>
+      <ul>
+        <li class="pro">1. El navegador abre una petición GET que queda <strong>esperando</strong> en el servidor</li>
+        <li class="pro">2. Cuando alguien envía un mensaje (POST), el servidor <strong>responde a todos</strong> los que esperan</li>
+        <li class="pro">3. Al recibir la respuesta, el navegador se <strong>reconecta automáticamente</strong></li>
+        <li class="pro">4. Resultado: los mensajes aparecen solos, como en WhatsApp</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="net-log">
+    <details>
+      <summary>🔍 Ver peticiones HTTP en tiempo real</summary>
+      <div class="net-log-content" id="netLog"></div>
+    </details>
+  </div>
+
+<script>
+const BASE = (window.location.origin && window.location.origin !== 'null')
+  ? window.location.origin
+  : 'http://localhost:4000';
+
+function escapeHtml(t) {
+  const d = document.createElement('div');
+  d.textContent = t;
+  return d.innerHTML;
+}
+function formatTime(ts) { return new Date(ts).toLocaleTimeString(); }
+
+function netLog(msg) {
+  const el = document.getElementById('netLog');
+  const ts = new Date().toLocaleTimeString();
+  el.innerHTML += `<div>[${ts}] ${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function addMsg(msg) {
+  const area = document.getElementById('chatArea');
+  const cls  = msg.usuario === 'Ana' ? 'msg-ana' : 'msg-pedro';
+  const icon = msg.usuario === 'Ana' ? '👩' : '👨';
+  const div  = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.innerHTML = `<strong>${icon} ${msg.usuario}</strong>: ${escapeHtml(msg.texto)}<div class="meta">${formatTime(msg.timestamp)}</div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+async function send(quien) {
+  const input = document.getElementById(quien.toLowerCase() + 'Input');
+  const texto = input.value.trim();
+  if (!texto) return;
+  input.value = '';
+  netLog(`→ POST /api/lp/mensaje  { usuario:"${quien}", texto:"${texto}" }`);
+  const res = await fetch(BASE + '/api/lp/mensaje', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usuario: quien, texto }),
+  });
+  const data = await res.json();
+  netLog(`← 200 OK  id:${data.mensaje.id}`);
+}
+
+let lastId = 0;
+let polling = false;
+
+async function pollLoop() {
+  if (polling) return;
+  polling = true;
+  while (polling) {
+    try {
+      netLog(`→ GET /api/lp/esperar?desde=${lastId}  (conexión abierta, esperando...)`);
+      const res  = await fetch(BASE + '/api/lp/esperar?desde=' + lastId);
+      const data = await res.json();
+      if (data.timeout) { netLog(`← timeout 25s — reconectando`); continue; }
+      if (data.reset)   { lastId = 0; continue; }
+      if (data.mensajes && data.mensajes.length > 0) {
+        data.mensajes.forEach(m => {
+          netLog(`← 💬 ${m.usuario}: "${m.texto}" (llegó solo)`);
+          addMsg(m);
+          if (m.id > lastId) lastId = m.id;
+        });
+      }
+    } catch (err) {
+      netLog(`✗ Error de conexión — reintentando en 2s`);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+}
+
+async function resetChat() {
+  await fetch(BASE + '/api/reset', { method: 'POST' });
+  lastId = 0;
+  document.getElementById('chatArea').innerHTML =
+    '<div class="msg msg-system">Conversación limpiada. ¡Escribe algo!</div>';
+  document.getElementById('netLog').innerHTML = '';
+}
+
+pollLoop();
+</script>
+</body>
+</html>
